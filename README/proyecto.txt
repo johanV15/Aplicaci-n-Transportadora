@@ -1,0 +1,330 @@
+create database proyfinal;
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+--TABLAS SIN RESTRICCIONES
+
+create table conductor(
+    id_cond bigint not null,
+    nombre varchar(25) not null,
+    apellido varchar(25) not null,
+    direccion varchar(25),
+    genero varchar(20),
+    nacionalidad varchar(10),
+    foto oid,
+    usuario varchar(10) not null,
+    primary key (id_cond)
+);
+create table tel_conductor(
+    id_cond bigint not null,
+    telefono bigint not null
+);
+
+create table vehiculo(
+    placa varchar(10) not null,
+    modelo int  not null,
+    id_cond bigint not null,
+    id_serv serial not null,
+    primary key (placa)
+);
+create table cliente(
+    id_cliente bigint not null,
+    nombre varchar(25) not null,
+    apellido varchar(25) not null,
+    direccion varchar(25) not null,
+    genero varchar(20),
+    nacionalidad varchar(10),
+    usuario varchar(10) not null,
+    primary key (id_cliente)
+);
+create table tel_cliente(
+    id_cliente bigint not null,
+    telefono bigint not null
+);
+create table admin(
+    id_admin bigint not null,
+    nombre varchar(25) not null,
+    usuario varchar(10) not null,
+    primary key(id_admin)
+);
+create table usuario(
+    usuario varchar(10) not null,
+    pass varchar(25) not null,
+    primary key(usuario)
+);
+create table servicio(
+    id_serv serial not null,
+    nombre varchar(25) not null,
+    tarifa real,
+    primary key(id_serv)
+);
+create table categoria(
+    id_cat serial not null,
+    nombre varchar(20) not null,
+    tarifa real not null,
+    primary key(id_cat)
+);
+create table ruta(
+    id_ruta serial not null,
+    dir_origen varchar(25) not null,
+    dir_destino varchar(25) not null,
+    primary key(id_ruta)
+);
+create table reg_servicio(
+    id_reg serial not null,
+    id_cond bigint not null,
+    id_cliente bigint not null,
+    id_serv serial not null,
+    val_servicio real not null,
+    medio_pago varchar(30) not null,
+    fecha varchar(10) not null,
+    id_cat serial not null,
+    id_ruta serial not null,
+    estado varchar(15),
+    valoracion varchar(1),
+    primary key(id_reg)
+);
+create table log_reg_servicio(
+    id_reg serial,
+    id_cond bigint,
+    id_cliente bigint,
+    id_serv serial,
+    val_servicio real,
+    medio_pago varchar(30),
+    fecha varchar(10),
+    id_cat serial,
+    id_ruta serial,
+    estado varchar(15),
+    valoracion varchar(1)
+);
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+--RESTRICCIONES
+create domain gen varchar
+not null
+check(value= 'Femenino' or value='Masculino' or value='No Binario' or value='No Especificado');
+
+create type nom_serv as enum ('Pasajeros','Alimentos','Todos');
+create type nom_cat as enum ('Normal','Especial','Urgente');
+create type dir as enum ('CL 90 C SUR 1-45');
+create type m_pago as enum ('Tarjeta','Efectivo');
+create type est as enum ('En camino','Terminado');
+create type valoracion as enum ('1','2','3','4','5');
+
+alter table conductor
+add constraint conduser_fk
+foreign key(usuario) references usuario(usuario) on delete cascade,
+alter column genero type gen;
+alter table conductor
+alter column genero set default 'No Especificado';
+
+alter table tel_conductor
+add constraint tlfcond_pk
+primary key(id_cond, telefono),
+add constraint tlfcond_fk
+foreign key(id_cond) references conductor(id_cond) on delete cascade;
+
+alter table vehiculo
+add constraint vidcond_fk
+foreign key(id_cond) references conductor(id_cond) on delete cascade,
+add constraint vidserv_fk
+foreign key(id_serv) references servicio(id_serv);
+
+alter table cliente
+add constraint cluser_fk
+foreign key(usuario) references usuario(usuario) on delete cascade,
+alter column genero type gen;
+alter table cliente
+alter column genero set default 'No Especificado';
+
+alter table tel_cliente
+add constraint tlfcl_pk
+primary key(id_cliente, telefono),
+add constraint tlfcl_fk
+foreign key(id_cliente) references cliente(id_cliente) on delete cascade;
+
+alter table admin
+add constraint admuser_fk
+foreign key(usuario) references usuario(usuario) on delete cascade;
+
+alter table servicio
+alter column nombre type nom_serv USING nombre::nom_serv;
+
+alter table categoria
+alter column nombre type nom_cat USING nombre::nom_cat;
+
+alter table ruta
+alter column  dir_origen type dir USING dir_origen::dir,
+alter column dir_origen set default 'CL 90 C SUR 1-45';
+
+alter table reg_servicio
+add constraint rgcond_fk
+foreign key(id_cond) references conductor(id_cond);
+
+alter table reg_servicio
+add constraint rgcl_fk
+foreign key(id_cliente) references cliente(id_cliente) on delete cascade,
+add constraint rgserv_fk
+foreign key(id_serv) references servicio(id_serv);
+
+alter table reg_servicio
+alter column medio_pago type m_pago USING medio_pago::m_pago,
+alter column estado type est USING estado::est;
+
+alter table reg_servicio
+alter column valoracion type valoracion USING valoracion::valoracion;
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+--Datos de prueba
+insert into servicio (nombre, tarifa) values
+('Pasajeros',100000),('Alimentos',150000),('Todos',0);
+
+insert into categoria (nombre,tarifa) values
+('Normal',1000),('Especial',5000),('Urgente',15000);
+
+insert into ruta (dir_destino) values ('cll 90 c');
+---------------------------------------------------------------------
+insert into usuario values ('adm1','a1'),('cl1','c1'),('cond1','co1');
+
+insert into cliente values 
+(12345,'prueba','asdfg','cll 90 c','Masculino','Colombia','cl1');
+
+insert into admin values (1,'Julian','adm1');
+
+insert into conductor values
+(11,'conductor','asdfg','cl123','Masculino','colombia',0,'cond1');
+
+insert into vehiculo values
+('asd123',2023,11,3);
+------------------------------------------------------------------------------------------
+insert into reg_servicio values
+(1,11,12345,3,25000,'Efectivo','2023-05-24',2,1,'En camino');
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+--VISTAS
+--Vista para que el cliente pueda visualizar solo los datos necesarios de sus pedidos realizados
+create view servs_cliente_vw as
+select rs.id_reg as NroRegistro, cl.id_cliente as identificacion, cl.nombre as nombre_cliente, s.nombre as servicio, c.nombre as categoria, rs.val_servicio as valor_servicio, rs.fecha, rs.estado
+from reg_servicio rs
+inner join cliente cl using (id_cliente)
+inner join servicio s using (id_serv)
+inner join categoria c using (id_cat);
+
+--Vista para que el conductor pueda visualizar solo los datos necesarios de los pedidos que debe hacer o realizó
+create view servs_cond_vw as
+select rs.id_reg as NroRegistro, cl.id_cond as identificacion, cl.nombre as nombre_conductor, s.nombre as servicio, c.nombre as categoria, rs.val_servicio as valor_servicio, r.dir_origen as origen, r.dir_destino as destino, rs.fecha, rs.estado
+from reg_servicio rs
+inner join conductor cl using (id_cond)
+inner join servicio s using (id_serv)
+inner join categoria c using (id_cat)
+inner join ruta r using (id_ruta);
+
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+PROCEDIMIENTOS
+/*Función que permite obtener el valor del servicio solicitado por el cliente,
+dependiendo del tipo de servicio y la categoria
+calc_valorserv(x,y)
+*/
+create function  calc_valorserv(x real, y real)
+returns real
+	as $$
+		select x+y;
+	$$
+	language sql;
+
+/*Función que permite obtener un conductor aleatorio el cual se encuentre
+disponible para realizar un nuevo servicio
+*/
+create function cond_disponible(serv int)
+returns long
+as $$
+    select c.id_cond from conductor c
+	inner join vehiculo v using (id_cond)
+	where (c.id_cond not in (select id_cond from reg_servicio)
+        and (v.id_serv=serv or v.id_serv=3))
+	or (c.id_cond not in (select id_cond from reg_servicio
+	                      where estado = 'En camino')
+	    and (id_serv=serv or id_serv=3))
+	order by random() limit 1;
+$$
+language sql;
+
+/*Función que permite ver el valor total de los servicios realizados
+dependiendo del tipo de servicio y la categoria
+*/
+create function valor_total_servicios()
+returns table(servicio nom_serv, categoria nom_cat, valor_total real)
+as $$
+	select s.nombre, c.nombre, sum(rs.val_servicio)
+	from reg_servicio rs
+	inner join servicio s using (id_serv)
+	inner join categoria c using (id_cat)
+	group by s.nombre, c.nombre;
+$$
+language sql;
+
+/*Función que muestra la cantidad de servicios realizados por mes
+dependiendo del tipo de servicio
+*/
+create function cant_servicios_mes()
+returns table(mes varchar, servicios_pasajeros bigint, servicios_alimentos bigint)
+as $$
+	select to_char(fecha::date, 'tmmonth') as mes,
+		count(case when id_serv=1 then 1 end),
+		count(case when id_serv=2 then 1 end)
+	from reg_servicio
+	group by mes
+	order by mes desc;
+$$
+language sql;
+
+/*Función que muestra los datos de los clientes
+que han solicitado servicios en x periodo de tiempo
+*/
+create function servs_solicitados_xtiempo(fch1 varchar, fch2 varchar)
+returns table
+(id_cliente bigint, nombre varchar, apellido varchar,
+ direccion varchar, genero varchar, nacionalidad varchar,
+ usuario varchar, fecha_pedido varchar)
+as $$
+	select distinct c.*, rs.fecha from cliente c
+	inner join reg_servicio rs using (id_cliente)
+	where fecha between fch1 and fch2
+    order by c.id_cliente, rs.fecha desc;
+$$
+language sql;
+
+/*Función que muestra el valor total de los servicios realizados
+dependiendo del medio de pago
+*/
+create function valor_servs_mediopago()
+returns table(medio_pago m_pago, valor_total real)
+as $$
+	select rs.medio_pago, sum(rs.val_servicio)
+	from reg_servicio rs
+	group by rs.medio_pago;
+$$
+language sql;
+------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------
+TRIGGERS
+/*Trigger que inserta en una tabla log los datos de reg_servicio antes de ser borrados
+al momento de que es eliminado un cliente del sistema
+*/
+create function log_servs()
+returns trigger
+as $$
+Begin
+	insert into "log_reg_servicio" values
+	(old.id_reg, old.id_cond, old.id_cliente, old.id_serv,
+	 old.val_servicio, old.medio_pago, old.fecha,
+	 old.id_cat, old.id_ruta, old.estado, old.valoracion);
+	return new;
+End;
+$$
+language plpgsql;
+
+create trigger log_servs_tr
+after Delete on reg_servicio
+for each row
+execute function log_servs();
